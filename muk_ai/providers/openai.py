@@ -390,3 +390,21 @@ class OpenAIProvider(ProviderBase):
                 else None,
             )
         return result
+
+    def get_models(self) -> list:
+        """Retrieve the models served by the OpenAI API (``GET {url}/models``)."""
+        response = self._http_session().get(
+            f'{self.api_url}/models',
+            headers=self.headers(),
+            timeout=self.request_timeout,
+        )
+        response.raise_for_status()
+        models = [] 
+        for model in response.json().get('data', []):
+            models.append({
+                'technical_name': model['id'],
+                'name': model['id'],
+                'context_window': model.get('context_window'),
+                'modality': model.get('modality')
+            })
+        return models

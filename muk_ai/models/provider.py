@@ -12,6 +12,10 @@ from odoo.addons.muk_ai.tools import (
     is_unmaterialized_attachment,
     nearest_reasoning_effort,
 )
+from logging import getLogger
+import requests
+
+_logger = getLogger(__name__)
 
 
 class AIProvider(models.Model):
@@ -509,3 +513,57 @@ class AIProvider(models.Model):
                 )
             )
         return super().unlink()
+
+    def get_models(self):
+            """Return the models reported by the provider client, empty if unsupported."""
+            self.ensure_one()
+            if not self.can_populate_models:
+                return []
+            return self._get_client().get_models()
+    
+    def _populate_models(self):
+        """Create the catalogue entries the provider reports and we lack."""
+        Model = self.env['muk_ai.model']
+        for record in self:
+            existing = set(
+                Model.with_context(active_test=False)
+                .search([('provider_id', '=', record.id), ('modality', '=', 'chat')])
+                .mapped('technical_name')
+            )
+            for item in record.get_models():
+                if item['id'] not in existing:
+                    Model.create(
+                        {
+                            'provider_id': record.id,
+                            'name': item['id'],
+                            'technical_name': item['id'],
+                            'context_window': item.get('max_model_len') or 0,
+                            'input_rate': 0.0,
+                            'output_rate': 0.0,
+                        }
+                    )
+
+    def action_populate_models(self):
+        """Fetch the provider's models and report the outcome."""
+        try:
+            self._populate_models()
+        except requests.RequestException as error:
+            message, kind = f'Failed to fetch models: {error}', 'danger'
+        else:
+            message, kind = 'Models populated successfully.', 'success'
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {'message': message, 'type': kind},
+        }
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Populate models of providers that support it, ignoring unreachable servers."""
+        records = super().create(vals_list)
+        for record in records.filtered(lambda r: r.can_populate_models and r.api_url):
+            try:
+                record._populate_models()
+            except requests.RequestException:
+                _logger.info('Could not populate models of provider %s', record.name)
+        return records
