@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from odoo.addons.muk_ai.providers.base import ProviderBase
 from odoo.addons.muk_mcp.tools.schema import to_strict_schema
+from typing import Generator
 
 GROUNDING_TOOL_KEY = 'googleSearch'
 CODE_EXECUTION_TOOL_KEY = 'codeExecution'
@@ -579,3 +580,35 @@ class GoogleProvider(ProviderBase):
             for part in (first.get('content') or {}).get('parts') or []:
                 self._consume_part(part, turn, on_delta)
         raw_usage.update(event.get('usageMetadata') or {})
+
+    def _iter_models(self) -> Generator[list, None, None]:
+        next_page_token = None
+        while True:
+            response = self._http_session().get(
+                f'{self.api_url}/models',
+                headers=self.headers(),
+                timeout=self.request_timeout,
+                params={'pageToken': next_page_token} if next_page_token else {},
+            )
+            response.raise_for_status()
+            res = response.json()
+            data = res.get('models', [])
+            next_page_token = res.get('nextPageToken')
+            yield data
+            if not next_page_token:
+                break
+
+    def get_models(self) -> list:
+        """Retrieve the models served by the Google API (``GET {url}/models``)."""
+
+        next_page_token = None
+        models = []
+        for data in self._iter_models():
+            for model in data:
+                models.append({
+                    'technical_name': model.get('name') or '',
+                    'name': model.get('displayName') or '',
+                    'context_window': model.get('contextWindow') or '',
+                    'modality': model.get('modality') or '',
+                })
+        return models

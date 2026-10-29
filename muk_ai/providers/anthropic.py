@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from typing import Generator
 import json
 from collections.abc import Callable
 
@@ -592,3 +592,37 @@ class AnthropicProvider(ProviderBase):
         elif event_type == 'error':
             error = event.get('error') or {}
             self._raise(error.get('message') or 'Unknown streaming error')
+
+    def _iter_models(self) -> Generator[list, None, None]:
+        last_id = None
+        has_more = True
+        while has_more:
+            response = self._http_session().get(
+                f'{self.api_url}/models',
+                headers=self.headers(),
+                timeout=self.request_timeout,
+                params={'after_id': last_id} if last_id else {},
+            )
+            response.raise_for_status()
+            res = response.json()
+            data = res.get('data', [])
+            has_more = res.get('has_more', False)
+            last_id = res.get('last_id')
+            yield data
+
+    def get_models(self) -> list:
+        """Retrieve the models served by the Anthropic API (``GET {url}/models``)."""
+        last_id = None
+        has_more = True
+        models = [] 
+        for data in self._iter_models():
+            model = {
+                "technical_name": data.get('id') or '',
+                "name": data.get('display_name') or '',
+                "context_window": data.get('context_window') or '',
+                "modality": data.get('modality') or '',
+            }
+            models.append(model)
+        
+        return models
+        

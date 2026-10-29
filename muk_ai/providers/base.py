@@ -516,3 +516,6 @@ class ProviderBase:
                 error=str(error)[:500],
             )
         )
+
+    def get_models(self) -> list:
+        pass
