@@ -10,6 +10,7 @@ from .call import (
     build_tool_call_output,
     clean_ask_preview,
     format_tool_signature,
+    schema_type_mismatches,
     summarize_tool_description,
 )
 from .context import (
@@ -49,7 +50,6 @@ from .runtime import (
     sanitize_json_schema,
 )
 from .attachment import (
-    ALLOWED_MIMETYPES,
     ATTACHMENT_REF_MAX_BYTES,
     ATTACHMENT_REF_RE,
     DEFAULT_MAX_UPLOAD_BYTES,

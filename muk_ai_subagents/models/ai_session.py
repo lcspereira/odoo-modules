@@ -102,10 +102,11 @@ class AISession(models.Model):
         return bool(self.parent_session_id)
 
     def _delegates(self) -> models.BaseModel:
-        """Return the active agents this chat may hand tasks to."""
+        """Return the active agents this chat may hand tasks to, its own first."""
         if self._is_child() or not self.agent_id.allow_delegation:
             return self.env['muk_ai.agent']
-        return self.agent_id.delegate_agent_ids.filtered('active')
+        agents = self.agent_id | self.agent_id.delegate_agent_ids
+        return agents.filtered('active')
 
     def _run_root(self) -> AISession:
         """Return the chat at the top of the delegation run."""
@@ -655,11 +656,11 @@ class AISession(models.Model):
         spent = self.parent_session_id.turn_wallclock_spent or 0.0
         return max(int(seconds - spent), WALLCLOCK_MIN_SECONDS)
 
-    def _turn_cost_error(self, limit: float) -> None:
+    def _cost_limit_error(self, message: str) -> None:
         """Name the budget as the reason a subagent ended on cost."""
         if self._is_child():
             self.stop_reason = 'budget'
-        super()._turn_cost_error(limit)
+        super()._cost_limit_error(message)
 
     def _turn_budget_error(self, turn_budget: float) -> None:
         """Name the budget as the reason a subagent ended on time."""
