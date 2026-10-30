@@ -949,3 +949,43 @@ class TestAiOpenAIProvider(AITestCommon):
         with patch.object(requests.Session, 'post', return_value=response):
             result = self.provider._request_responses(inputs=[])
         self.assertEqual(result['text'], 'stray piece')
+
+    def test_get_models(self):
+        response = {
+            "data": [
+                {
+                    "id": "model_1",
+                    "context_window": 1024,
+                    "modality": "text"
+                },
+            ],
+            'has_more': False,
+            'last_id': None
+        }
+        models = None
+        with patch.object(requests.Session, 'get', return_value=self._mock_http_response(response)) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertIn("technical_name", models[0])
+        self.assertIn("name", models[0])
+        self.assertIn("context_window", models[0])
+        self.assertIn("modality", models[0])
+        
+
+        self.assertEqual(models[0]['technical_name'], response['data'][0]['id'])
+        self.assertEqual(models[0]['name'], response['data'][0]['id'])
+        self.assertEqual(models[0]['context_window'], response['data'][0]['context_window'])
+        self.assertEqual(models[0]['modality'], response['data'][0]['modality'])
+
+def test_get_models_with_empty_response(self):
+    response = {
+        "data": [],
+        'has_more': False,
+        'last_id': None
+    }
+    models = None
+    with patch.object(requests.Session, 'get', return_value=self._mock_http_response(response)) as mock_get:
+        models = self.provider.get_models()
+
+    self.assertEqual(models, [])
+    

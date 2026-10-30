@@ -1335,3 +1335,83 @@ class TestAiGoogleProvider(AITestCommon):
         self.assertEqual(result['text'], 'the answer')
         self.assertEqual(len(result['carry_inputs']), 1)
         self.assertNotIn('provider_state', result['carry_inputs'][0])
+
+    def test_get_models(self):
+        response = {
+            "models": [
+                {
+                    "name": "model_1",
+                    "displayName": "Model 1",
+                    "contextWindow": 1024,
+                    "modality": "text"
+                },
+            ],
+            'has_more': False,
+            'last_id': None
+        }
+        models = None
+        with patch.object(requests.Session, 'get', return_value=self._mock_http_response(response)) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertIn("technical_name", models[0])
+        self.assertIn("name", models[0])
+        self.assertIn("context_window", models[0])
+        self.assertIn("modality", models[0])
+        
+
+        self.assertEqual(models[0]['technical_name'], response['models'][0]['name'])
+        self.assertEqual(models[0]['name'], response['models'][0]['displayName'])
+        self.assertEqual(models[0]['context_window'], response['models'][0]['contextWindow'])
+        self.assertEqual(models[0]['modality'], response['models'][0]['modality'])
+
+    def test_get_models_with_empty_response(self):
+        response = {
+            "models": [],
+            'has_more': False,
+            'last_id': None
+        }
+        models = None
+        with patch.object(requests.Session, 'get', return_value=self._mock_http_response(response)) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertEqual(models, [])
+
+    def test_get_models_paginated(self):
+        response_page_1 = {
+            "models": [
+                {
+                    "name": "model_1",
+                    "displayName": "Model 1",
+                    "contextWindow": 1024,
+                    "modality": "text"
+                },
+            ],
+            'nextPageToken': 'token_1'
+        }
+        response_page_2 = {
+            "models": [
+                {
+                    "name": "model_2",
+                    "displayName": "Model 2",
+                    "contextWindow": 2048,
+                    "modality": "text"
+                },
+            ],
+            'nextPageToken': None
+        }
+        models = None
+        with patch.object(requests.Session, 'get', side_effect=[
+            self._mock_http_response(response_page_1),
+            self._mock_http_response(response_page_2)
+        ]) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertEqual(len(models), 2)
+        self.assertEqual(models[0]['technical_name'], response_page_1['models'][0]['name'])
+        self.assertEqual(models[1]['technical_name'], response_page_2['models'][0]['name'])
+        self.assertEqual(models[0]['name'], response_page_1['models'][0]['displayName'])
+        self.assertEqual(models[1]['name'], response_page_2['models'][0]['displayName'])
+        self.assertEqual(models[0]['context_window'], response_page_1['models'][0]['contextWindow'])
+        self.assertEqual(models[1]['context_window'], response_page_2['models'][0]['contextWindow'])
+        self.assertEqual(models[0]['modality'], response_page_1['models'][0]['modality'])
+        self.assertEqual(models[1]['modality'], response_page_2['models'][0]['modality'])
