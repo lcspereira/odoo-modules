@@ -612,17 +612,16 @@ class AnthropicProvider(ProviderBase):
 
     def get_models(self) -> list:
         """Retrieve the models served by the Anthropic API (``GET {url}/models``)."""
-        last_id = None
-        has_more = True
         models = [] 
         for data in self._iter_models():
-            model = {
-                "technical_name": data.get('id') or '',
-                "name": data.get('display_name') or '',
-                "context_window": data.get('context_window') or '',
-                "modality": data.get('modality') or '',
-            }
-            models.append(model)
+            for model_data in data:
+                model = {
+                    "technical_name": model_data.get('id') or '',
+                    "name": model_data.get('display_name') or '',
+                    "context_window": model_data.get('context_window') or '',
+                    "modality": model_data.get('modality') or '',
+                }
+                models.append(model)
         
         return models
         
