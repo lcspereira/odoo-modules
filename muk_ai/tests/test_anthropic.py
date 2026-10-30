@@ -656,6 +656,88 @@ class TestAiAnthropicProvider(AITestCommon):
         )
         self.assertEqual([p['delta'] for k, p in deltas if k == 'reasoning'], ['step'])
 
+    def test_get_models(self):
+        response = {
+            "data": [
+                {
+                    "id": "model_1",
+                    "display_name": "Model 1",
+                    "context_window": 1024,
+                    "modality": "text"
+                },
+            ],
+            'has_more': False,
+            'last_id': None
+        }
+        models = None
+        with patch.object(requests.Session, 'get', return_value=self._mock_http_response(response)) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertIn("technical_name", models[0])
+        self.assertIn("name", models[0])
+        self.assertIn("context_window", models[0])
+        self.assertIn("modality", models[0])
+        
+
+        self.assertEqual(models[0]['technical_name'], response['data'][0]['id'])
+        self.assertEqual(models[0]['name'], response['data'][0]['display_name'])
+        self.assertEqual(models[0]['context_window'], response['data'][0]['context_window'])
+        self.assertEqual(models[0]['modality'], response['data'][0]['modality'])
+    
+    def test_get_models_with_empty_response(self):
+        response = {
+            "data": [],
+            'has_more': False,
+            'last_id': None
+        }
+        models = None
+        with patch.object(requests.Session, 'get', return_value=self._mock_http_response(response)) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertEqual(models, [])
+
+    def test_get_models_paginated(self):
+        response_page_1 = {
+            "data": [
+                {
+                    "id": "model_1",
+                    "display_name": "Model 1",
+                    "context_window": 1024,
+                    "modality": "text"
+                },
+            ],
+            'has_more': True,
+            'last_id': "model_1"
+        }
+        response_page_2 = {
+            "data": [
+                {
+                    "id": "model_2",
+                    "display_name": "Model 2",
+                    "context_window": 2048,
+                    "modality": "text"
+                },
+            ],
+            'has_more': False,
+            'last_id': "model_2"
+        }
+        models = None
+        with patch.object(requests.Session, 'get', side_effect=[
+            self._mock_http_response(response_page_1),
+            self._mock_http_response(response_page_2)
+        ]) as mock_get:
+            models = self.provider.get_models()
+
+        self.assertEqual(len(models), 2)
+        self.assertEqual(models[0]['technical_name'], response_page_1['data'][0]['id'])
+        self.assertEqual(models[1]['technical_name'], response_page_2['data'][0]['id'])
+        self.assertEqual(models[0]['name'], response_page_1['data'][0]['display_name'])
+        self.assertEqual(models[1]['name'], response_page_2['data'][0]['display_name'])
+        self.assertEqual(models[0]['context_window'], response_page_1['data'][0]['context_window'])
+        self.assertEqual(models[1]['context_window'], response_page_2['data'][0]['context_window'])
+        self.assertEqual(models[0]['modality'], response_page_1['data'][0]['modality'])
+        self.assertEqual(models[1]['modality'], response_page_2['data'][0]['modality'])
+    
     def _stream_events(self, events: list[dict]) -> tuple[dict, list]:
         """Stream ``events`` through the provider and return the result and deltas."""
         response = MagicMock()

@@ -517,8 +517,6 @@ class AIProvider(models.Model):
     def get_models(self):
             """Return the models reported by the provider client, empty if unsupported."""
             self.ensure_one()
-            if not self.can_populate_models:
-                return []
             return self._get_client().get_models()
     
     def _populate_models(self):
@@ -561,9 +559,10 @@ class AIProvider(models.Model):
     def create(self, vals_list):
         """Populate models of providers that support it, ignoring unreachable servers."""
         records = super().create(vals_list)
-        for record in records.filtered(lambda r: r.can_populate_models and r.api_url):
+        for record in records:
             try:
-                record._populate_models()
+                if record.api_url:
+                    record._populate_models()
             except requests.RequestException:
                 _logger.info('Could not populate models of provider %s', record.name)
         return records

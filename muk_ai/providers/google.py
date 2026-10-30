@@ -603,7 +603,6 @@ class GoogleProvider(ProviderBase):
     def get_models(self) -> list:
         """Retrieve the models served by the Google API (``GET {url}/models``)."""
 
-        next_page_token = None
         models = []
         for data in self._iter_models():
             for model in data:
