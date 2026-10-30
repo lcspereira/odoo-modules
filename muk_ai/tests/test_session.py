@@ -1455,6 +1455,7 @@ class TestAiSession(AITestCommon):
             session.start('question 1')
         with self._patch_provider([self._text_payload('answer 2')]):
             session.send_message('question 2')
+        session.write({'total_cost': 1.0, 'iteration_count': 2})
         events = session.event_ids.sorted('sequence')
         second_user = next(
             event
@@ -1486,6 +1487,7 @@ class TestAiSession(AITestCommon):
         ]
         self.assertEqual(len(original_users), 2)
         self.assertEqual(fork.state, 'done')
+        self.assertEqual((fork.total_cost, fork.iteration_count), (0, 0))
 
     def test_fork_at_event_preserves_agent(self):
         agent = self.env['muk_ai.agent']._get_default()
@@ -2322,6 +2324,39 @@ class TestAiSession(AITestCommon):
             [{'call_id': 'c1', 'name': 'read_records', 'arguments': {}}], outputs, 0
         )
         self.assertIn('tool_not_offered', outputs[0]['output'])
+
+    def test_an_unloaded_tool_called_with_wrong_types_is_loaded_not_run(self):
+        agent = self.env['muk_ai.agent'].create(
+            {
+                'name': 'Deferred',
+                'tool_filter': ['search_count', 'read_records'],
+                'essential_tool_names': ['search_count'],
+            }
+        )
+        partner = self.env['res.partner'].create({'name': 'Deferred Partner'})
+        arguments = {'model': 'res.partner', 'fields': ['name']}
+        for ids, expected, loaded in (
+            ([partner.id], 'Deferred Partner', []),
+            (f'[{partner.id}]', 'ids must be array', ['read_records']),
+        ):
+            with self.subTest(ids=ids):
+                session = self.env['muk_ai.session'].create(
+                    {'name': 'deferred', 'agent_id': agent.id}
+                )
+                outputs = []
+                session._process_tool_round(
+                    [
+                        {
+                            'call_id': 'c1',
+                            'name': 'read_records',
+                            'arguments': {**arguments, 'ids': ids},
+                        }
+                    ],
+                    outputs,
+                    0,
+                )
+                self.assertIn(expected, outputs[0]['output'])
+                self.assertEqual(session.expanded_tool_names or [], loaded)
 
     # ----------------------------------------------------------
     # Tests: turn limit warnings and cost budget

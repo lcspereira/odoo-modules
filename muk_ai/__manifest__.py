@@ -10,7 +10,7 @@
         muk_mcp tool registry your external AI clients use — one source
         of truth, one permission model, one audit trail.
     """,
-    'version': '18.0.1.24.16',
+    'version': '18.0.1.27.0',
     'category': 'Productivity',
     'license': 'LGPL-3',
     'author': 'MuK IT',
@@ -24,6 +24,7 @@
         'bus',
         'mail',
         'base_setup',
+        'attachment_indexation',
         'muk_mcp',
     ],
     'data': [
@@ -43,6 +44,7 @@
         'views/mcp_tool_log.xml',
         'views/space.xml',
         'views/session.xml',
+        'views/usage.xml',
         'views/chat.xml',
         'views/res_users.xml',
         'views/res_config_settings.xml',
